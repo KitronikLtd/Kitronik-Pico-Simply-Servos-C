@@ -1,0 +1,24 @@
+.program servo
+.side_set 1 opt
+
+    pull noblock  side 0    ; first we clear the pin to zero, then load the registers. Y is always 20000 - 20uS, x is the pulse 'on' length.
+    mov x, osr              ; Keep most recent pull data stashed in X, for recycling by noblock
+    mov y, isr              ; ISR must be preloaded with PWM count max
+loop:
+    jmp x!=y skip          ; if there is 'excess' Y number leave the pin alone and jump to the 'skip' label until we get to the X value
+    nop  side 1
+skip:
+    jmp y-- loop            ; count down y by 1 and jump to pwmloop. When y is 0 we will go back to the 'pull' command
+
+% c-sdk {
+static inline void servo_program_init(PIO pio, uint sm, uint offset, uint pin, uint clkdiv) {
+    pio_gpio_init(pio, pin);
+    pio_sm_set_consecutive_pindirs(pio, sm, pin, 1, true);
+
+    pio_sm_config c = servo_program_get_default_config(offset);
+    sm_config_set_sideset_pins(&c, pin);
+    sm_config_set_clkdiv(&c, clkdiv);
+
+    pio_sm_init(pio, sm, offset, &c);
+}
+%}
